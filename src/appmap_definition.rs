@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use tracing::{info, instrument};
 
 pub use event_id::EventId;
 
@@ -29,12 +30,17 @@ pub struct MessageCallObject {}
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct AppMapObject {
     pub version: String,
-    pub metadata: MetadataObject,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub metadata: Option<MetadataObject>,
     // pub class_map: Vec<CodeObject>,
+    #[serde(rename = "classMap")]
     pub class_map: Vec<CodeObjectType>,
     pub events: Vec<EventObject>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
+    #[serde(rename = "eventUpdates")]
     pub event_updates: Option<HashMap<u32, EventObject>>,
 }
 //region events
@@ -114,10 +120,11 @@ pub struct CallObject {
     #[serde(default)]
     pub parameters: Option<Vec<ParameterObject>>,
     ///Required flag if the method is class-scoped (static) or instance-scoped. Must be true or false. Example: true.
+    #[serde(rename = "static")]
     pub is_static: bool,
 
     #[serde(flatten)]
-    pub data: CallObjectType,
+    pub type_: CallObjectType,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -125,39 +132,13 @@ pub struct CallObject {
 #[serde(rename_all = "camelCase")]
 pub enum CallObjectType {
     Normal,
-    Function(FunctionCallObject),
+    Function,
     HttpServerRequest(HttpServerRequestCallObject),
     HttpServerResponse(HttpServerResponseCallObject),
     HttpClientRequest(HttpClientRequestCallObject),
     HttpClientResponse(HttpClientResponseCallObject),
     SqlQuery(SqlQueryCallObject),
     Message(MessageCallObject),
-}
-#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-/// Note:
-///
-/// In order to correlate function call events with function objects defined in the class map, the
-/// path and lineno attributes of each "call" event should exactly match the location attribute of
-/// the corresponding function in the classMap.
-pub struct FunctionCallObject {
-    /// Recommended path name of the file which triggered the event.
-    /// Example: "/src/architecture/lib/appland/local/client.rb".
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    pub path: Option<PathBuf>,
-    /// Recommended line number which triggered the event. Example: 5.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    pub lineno: Option<usize>,
-    /// Optional parameter object describing the object on which the function is called. Corresponds
-    /// to the receiver, self and this concept found in various programming languages.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    pub receiver: Option<ParameterObject>,
-    /// Recommended array of parameter objects describing the function call parameters.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    pub parameters: Option<Vec<ParameterObject>>,
 }
 //endregion
 
@@ -236,6 +217,7 @@ pub struct FunctionCodeObject {
     #[serde(default)]
     pub location: Option<String>,
     ///Required flag if the method is class-scoped (static) or instance-scoped. Must be true or false. Example: true.
+    #[serde(rename = "static")]
     pub is_static: bool,
     ///Optional list of arbitrary labels describing the function.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -252,3 +234,8 @@ pub struct FunctionCodeObject {
 }
 
 //endregion
+
+#[instrument]
+pub fn test_sub_mod() {
+    info!("test message from test_sub_mod");
+}

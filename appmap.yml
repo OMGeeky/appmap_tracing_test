@@ -1,3 +1,3 @@
-appmap_dir: maps/tmp/appmap
+appmap_dir: maps/tmp/
 language: rust
 name: appmap_tracing_test
