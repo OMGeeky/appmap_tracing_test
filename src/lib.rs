@@ -6,8 +6,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
-use tracing::{Event, Id, Subscriber};
+use tracing::field::Field;
+use tracing::span::{Attributes, Record};
+use tracing::{Event, Id, Instrument, Subscriber};
+use tracing_subscriber::field::Visit;
 use tracing_subscriber::layer::Context;
+use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::Layer;
 
 use crate::appmap_definition::*;
@@ -82,7 +86,7 @@ impl AppMap {
         });
         let existing_node = self.find_in_class_map(&class, &method);
         if existing_node.is_none() {
-            println!("node not found: {} ; {}", class, method);
+            // println!("node not found: {} ; {}", class, method);
             self.add_func_to_hierarchy(
                 class,
                 method,
@@ -90,10 +94,10 @@ impl AppMap {
                     .flatten(),
             );
         } else {
-            println!(
-                "node already existing: {} ; {} => {:?}",
-                class, method, existing_node
-            );
+            // println!(
+            //     "node already existing: {} ; {} => {:?}",
+            //     class, method, existing_node
+            // );
         }
     }
     fn add_func_to_hierarchy(&mut self, class: String, method: String, path: Option<String>) {
@@ -120,7 +124,7 @@ impl AppMap {
     }
 
     fn add_class_to_hierarchy(&mut self, class: &str) {
-        println!("class_map: {:?}", self.data.class_map);
+        // println!("class_map: {:?}", self.data.class_map);
         let class_parts = class.split_once("::");
         if let Some((base, name)) = class_parts {
             //class is a subclass. Check if the parent of the class exists already
@@ -138,14 +142,14 @@ impl AppMap {
                 .expect("Could not find or create the parent class")
                 .children
                 .push_or_create(class_node);
-            println!(
-                "added sub class: {} under {} => {:?}",
-                name, base, self.data.class_map
-            );
+            // println!(
+            //     "added sub class: {} under {} => {:?}",
+            //     name, base, self.data.class_map
+            // );
             return;
         }
         //could not split so the class should be a top level class
-        println!("got add request for top level class: {}", class);
+        // println!("got add request for top level class: {}", class);
 
         let top_level_class = self.find_class_in_class_map_mut(class);
         if top_level_class.is_some() {
@@ -158,7 +162,7 @@ impl AppMap {
 
             let classes: &mut Vec<_> = &mut self.data.class_map;
             classes.push(class_node);
-            println!("Added top level class: {} => {:?}", class, classes);
+            // println!("Added top level class: {} => {:?}", class, classes);
         }
     }
 
@@ -220,9 +224,7 @@ impl AppMap {
     }
 }
 
-impl<S: Subscriber + Debug + for<'lookup> tracing_subscriber::registry::LookupSpan<'lookup>>
-    Layer<S> for AppMapLayer
-{
+impl<S: Subscriber + Debug + for<'lookup> LookupSpan<'lookup>> Layer<S> for AppMapLayer {
     fn on_event(&self, event: &Event<'_>, ctx: Context<'_, S>) {
         println!("event: {:?}; ctx: {:?}", event, ctx);
     }
@@ -232,8 +234,18 @@ impl<S: Subscriber + Debug + for<'lookup> tracing_subscriber::registry::LookupSp
         if let Some(metadata) = metadata {
             let parameters = metadata.fields();
             println!("parameters: {:?}", parameters);
-            let x = metadata.module_path().unwrap() == metadata.target();
-            println!("some test data: {:?}", x);
+            for field in parameters {
+                println!("field: {:?}", field);
+                // let x = field.value();
+                // println!("field value: {:?}", x);
+            }
+            let x: Option<Field> = parameters.field("x");
+            let x2 = self.in_current_span();
+
+            println!("some test data: (1) {:?}", x);
+            let x = x2.span().field("x");
+            // let x = metadata.callsite();
+            println!("some test data: (2) {:?}", x);
 
             self.test.lock().unwrap().add_function_call_event(
                 9999,
@@ -249,6 +261,27 @@ impl<S: Subscriber + Debug + for<'lookup> tracing_subscriber::registry::LookupSp
     fn on_close(&self, id: Id, ctx: Context<'_, S>) {
         println!("on_close=> id: {:?}; ctx: {:?}", id, ctx);
     }
+    fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
+        println!(
+            "on_new_span(self: {{...}}, attrs: {:?}, id: {:?}, ctx: {:?}",
+            attrs, id, ctx
+        );
+        println!("values: {:?}", attrs.values());
+    }
+    fn on_record(&self, _span: &Id, _values: &Record<'_>, _ctx: Context<'_, S>) {
+        println!("span: {:?}, values: {:?}, ctx: {:?}", _span, _values, _ctx);
+    }
 }
+
+// #[derive(Debug, Clone)]
+// pub struct AppMapFnVisitor {}
+// impl Visit for AppMapFnVisitor {
+//     fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
+//         println!(
+//             "record_debug(self:{:?}, field: {:?}, value: {:?} ",
+//             self, field, value
+//         );
+//     }
+// }
 mod extensions;
 mod node_functions;

@@ -45,7 +45,7 @@ pub fn find_class_in_tree_mut<'a>(
     node: &'a mut CodeObjectType,
     class: &str,
 ) -> Option<&'a mut ClassCodeObject> {
-    println!("trying to find class: {} in node: {:?}", class, node);
+    // println!("trying to find class: {} in node: {:?}", class, node);
     let children = match node {
         CodeObjectType::Class(c) => {
             if class.ends_with(&c.name) {
