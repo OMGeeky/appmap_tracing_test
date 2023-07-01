@@ -8,12 +8,22 @@ use tracing_subscriber::Registry;
 
 use appmap_tracing_test::appmap_definition::*;
 use appmap_tracing_test::*;
+use reqwest;
 
-pub fn main() -> Result<(), Box<dyn Error>> {
+#[tokio::main]
+pub async fn main() -> Result<(), Box<dyn Error>> {
     init_tracing();
 
     sample_json()?;
     test_sub_mod();
+    test_reqwest(true).await?;
+    Ok(())
+}
+
+#[instrument]
+async fn test_reqwest(test_param: bool) -> Result<(), Box<dyn Error>> {
+    let result = reqwest::get("http://google.com").await?;
+    println!("result: {:?}", result);
     Ok(())
 }
 
